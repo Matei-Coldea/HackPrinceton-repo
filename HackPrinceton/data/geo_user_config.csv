@@ -1,0 +1,8 @@
+user_id,block_ping_threshold,dwell_window_minutes,description
+demo_user_strict,3,10,Very sensitive – gets blocked quickly
+demo_user_default,5,15,Default behaviour
+demo_user_relaxed,8,20,More relaxed
+demo_user_paranoid,2,5,Extremely strict - blocks very fast
+demo_user_lenient,10,30,Very relaxed - allows long dwell time
+test_user,5,15,Default test user
+
