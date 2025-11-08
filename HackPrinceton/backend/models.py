@@ -2,6 +2,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from sqlalchemy import Index
+from math import radians, cos, sin, asin, sqrt
 
 db = SQLAlchemy()
 
@@ -66,3 +67,30 @@ class Transaction(db.Model):
 
 Index("ix_tx_user_ts", Transaction.user_id, Transaction.ts)
 Index("ix_tx_user_cat_ts", Transaction.user_id, Transaction.category, Transaction.ts)
+
+class GeoFenceRule(db.Model):
+    __tablename__ = "geofence_rules"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+
+    name = db.Column(db.String(64), nullable=False)          # "Mall", "Bar row", etc.
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    radius_m = db.Column(db.Integer, nullable=False)         # radius in meters
+
+    # Optional targeting: only apply to a category (e.g., "fun"), or null = any
+    category = db.Column(db.String(32))                      # same normalization as GuardianRule
+
+    # policy: "block" (decline unless override) or "warn" (approve but mark reason)
+    policy = db.Column(db.String(8), nullable=False, default="block")
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+class UserLocationPing(db.Model):
+    __tablename__ = "user_location_pings"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    accuracy_m = db.Column(db.Float)                         # optional GPS accuracy
+    ts = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

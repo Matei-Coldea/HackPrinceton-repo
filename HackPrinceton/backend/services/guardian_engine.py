@@ -1,6 +1,8 @@
 from typing import Tuple, Optional
 from datetime import datetime
 from models import db, GuardianRule, PendingOverride
+from models import db, GeoFenceRule, UserLocationPing
+from services.geo import haversine_m
 
 def is_risky(user_id: int, amount_cents: int, merchant: str, category: Optional[str]) -> bool:
     # Very simple v1 rule:
@@ -33,13 +35,56 @@ def create_pending_override(user_id: int, merchant: str, amount_cents: int, ttl_
     db.session.add(ov)
     db.session.commit()
 
-def apply_guardian_logic(user_id: int, amount_cents: int, merchant: str, category: Optional[str]) -> Tuple[str, str]:
-    # 1) Check override
+def apply_guardian_logic(user_id: int, amount_cents: int, merchant: str, category: str | None):
+    # 0) Geofence check
+    gf = geofence_effect(user_id, category)
+    if gf:
+        policy, gf_name = gf
+        if policy == "block":
+            # Create pending override & decline
+            create_pending_override(user_id, merchant, amount_cents)
+            return ("DECLINE", "location_block")
+        elif policy == "warn":
+            # Allow but tag the reason
+            # (You can still continue with budget checks; we short-circuit here for clarity.)
+            return ("APPROVE", "location_warn")
+
+    # 1) Override?
     if has_valid_override(user_id, merchant, amount_cents):
-        return "APPROVE", "override"
-    # 2) Risk
+        return ("APPROVE", "override")
+
+    # 2) Budget risk?
     if is_risky(user_id, amount_cents, merchant, category):
         create_pending_override(user_id, merchant, amount_cents)
-        return "DECLINE", "risky"
+        return ("DECLINE", "risky")
+
     # 3) Safe
-    return "APPROVE", "safe"
+    return ("APPROVE", "safe")
+
+
+def _latest_ping_for_user(user_id: int):
+    return (UserLocationPing.query
+            .filter_by(user_id=user_id)
+            .order_by(UserLocationPing.ts.desc())
+            .first())
+
+def geofence_effect(user_id: int, category: Optional[str]) -> Optional[Tuple[str, str]]:
+    """
+    Returns (policy, name) if current location is within a geofence that applies.
+    policy in {"block","warn"}; name is geofence label.
+    """
+    ping = _latest_ping_for_user(user_id)
+    if not ping:
+        return None
+
+    fences = GeoFenceRule.query.filter_by(user_id=user_id).all()
+    cat = (category.lower() if category else None)
+
+    for f in fences:
+        if f.category and cat and f.category != cat:
+            continue  # category-specific fence doesn't match
+        d = haversine_m(ping.latitude, ping.longitude, f.latitude, f.longitude)
+        if d <= float(f.radius_m):
+            return (f.policy, f.name)
+    return None
+
