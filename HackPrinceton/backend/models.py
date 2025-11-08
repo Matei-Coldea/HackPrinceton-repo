@@ -1,19 +1,10 @@
-"""
-Data models and marshmallow schemas for API requests and responses
-"""
-
 from dataclasses import dataclass
 from typing import Dict, Optional, List
 from marshmallow import Schema, fields, post_load
 
 
-# ================================
-#  DATACLASSES (for internal use)
-# ================================
-
 @dataclass
 class TransactionIn:
-    """Transaction input data"""
     user_id: str
     amount: float
     merchant_name: str
@@ -24,7 +15,6 @@ class TransactionIn:
 
 @dataclass
 class ScoreResponse:
-    """Transaction scoring response"""
     decision: str
     p_avoid: float
     reason: str
@@ -33,30 +23,23 @@ class ScoreResponse:
 
 @dataclass
 class Stats:
-    """Geo-guardian statistics"""
     recent_stationary_pings_near_restaurants: int
     window_minutes: int
 
 
 @dataclass
 class Notification:
-    """Notification data"""
-    type: str           # e.g. "behavior"
-    code: str           # e.g. "RESTAURANT_STATIONARY_TOO_LONG"
-    severity: str       # e.g. "warning"
+    type: str
+    code: str
+    severity: str
 
 
 @dataclass
 class LocationCheckResponse:
-    """Location check response"""
-    decision: str                      # "ok" or "block"
+    decision: str
     stats: Optional[Stats] = None
     notifications: Optional[List[Notification]] = None
 
-
-# ================================
-#  MARSHMALLOW SCHEMAS (for API serialization)
-# ================================
 
 class TransactionInSchema(Schema):
     user_id = fields.Str(required=True)
@@ -84,13 +67,13 @@ class StatsSchema(Schema):
 
 
 class NotificationSchema(Schema):
-    type = fields.Str(required=True)      # e.g. "behavior"
-    code = fields.Str(required=True)      # e.g. "RESTAURANT_STATIONARY_TOO_LONG"
-    severity = fields.Str(required=True)  # e.g. "warning"
+    type = fields.Str(required=True)
+    code = fields.Str(required=True)
+    severity = fields.Str(required=True)
 
 
 class LocationCheckResponseSchema(Schema):
-    decision = fields.Str(required=True)  # "ok" or "block"
+    decision = fields.Str(required=True)
     stats = fields.Nested(StatsSchema, allow_none=True)
     notifications = fields.List(fields.Nested(NotificationSchema), allow_none=True)
 
