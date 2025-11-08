@@ -1,6 +1,6 @@
 //
 //  homeView.swift
-//  
+//
 //
 //  Created by Annabella Rinaldi on 11/7/25.
 //
@@ -8,6 +8,8 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var vm = HomeViewModel()
+    @State private var showingNotifications = false
+    @State private var showTestAlert = false
 
     var body: some View {
         NavigationStack {
@@ -19,7 +21,7 @@ struct HomeView: View {
                         total: vm.totalSaved,
                         sinceDate: vm.sinceDate
                     ) {
-                        savingsChartView(cumulative: vm.cumulative)
+                        SavingsChartView(cumulative: vm.cumulative)
                             .frame(height: 220)
                     }
 
@@ -46,15 +48,39 @@ struct HomeView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("My Finance")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) { Image(systemName: "line.3.horizontal") }
+                ToolbarItem(placement: .topBarLeading) {
+                    Image(systemName: "line.3.horizontal")
+                        .onLongPressGesture {
+                            // Hidden test: long press menu icon to trigger notification
+                            NotificationManager.shared.sendLocationAlert(
+                                locationName: "Target",
+                                averageSpend: 45,
+                                riskLevel: .high,
+                                distance: 150
+                            )
+                            showTestAlert = true
+                            print("🧪 Test notification sent! Will appear in 5 seconds. Press Home (⌘⇧H) now!")
+                        }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    ZStack(alignment: .topTrailing) {
+                    Button {
+                        showingNotifications = true
+                    } label: {
                         Image(systemName: "bell")
-                        Circle().fill(.red).frame(width: 8, height: 8).offset(x: 6, y: -4)
                     }
                 }
             }
-            .task { vm.load() }
+            .task {
+                vm.load()
+            }
+            .sheet(isPresented: $showingNotifications) {
+                NotificationsView()
+            }
+            .alert("Test Notification Sent! 🧪", isPresented: $showTestAlert) {
+                Button("OK") { }
+            } message: {
+                Text("Notification will appear in 5 seconds. Press Home (⌘⇧H) NOW and wait!")
+            }
         }
     }
 }
