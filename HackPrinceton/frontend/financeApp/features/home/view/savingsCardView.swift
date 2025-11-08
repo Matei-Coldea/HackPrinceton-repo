@@ -37,7 +37,7 @@ struct SavingsCardView<Chart: View>: View {
         .background(RoundedRectangle(cornerRadius: DS.radius).fill(DS.surfaceElevated))
         .overlay(RoundedRectangle(cornerRadius: DS.radius).stroke(DS.outline))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
-        .padding(.horizontal, DS.pad)  // ✅ FIXED: Changed from DS.padding to DS.pad
+        .padding(.horizontal, DS.pad)
     }
 
     private var sinceText: String {
@@ -48,7 +48,51 @@ struct SavingsCardView<Chart: View>: View {
     }
 
     private func currencyString(_ dec: Decimal) -> String {
-        let num = NSDecimalNumber(decimal: dec).doubleValue
-        return (num as NSNumber).formatted(.currency(code: Locale.current.currency?.identifier ?? "USD"))
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = Locale.current.currency?.identifier ?? "USD"
+        let num = NSDecimalNumber(decimal: dec)
+        return formatter.string(from: num) ?? "$0.00"
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
