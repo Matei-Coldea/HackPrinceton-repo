@@ -1,0 +1,10 @@
+ACCESS_TOKEN=$(
+  curl -s -X POST "https://upllvkbfzvqgrcpuizle.supabase.co/auth/v1/token?grant_type=password" \
+    -H "apikey: $ANON_PUBLIC_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"email":"ronitsohal@gmail.com","password":"test12345"}' \
+  | jq -r '.access_token'
+); echo ${ACCESS_TOKEN:0:40}...
+
+curl -s http://localhost:8080/whoami \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
