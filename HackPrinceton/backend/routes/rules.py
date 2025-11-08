@@ -16,7 +16,7 @@ def upsert_rule():
     data = request.get_json(force=True)
     category = (data.get("category") or "").strip().lower()
     limit = int(data.get("monthly_limit_cents", 0))
-    if not category or limit <= 0:
+    if not category or limit < 0:
         return jsonify({"error": "category and positive monthly_limit_cents required"}), 400
     r = GuardianRule.query.filter_by(user_id=uid, category=category).first()
     if r:

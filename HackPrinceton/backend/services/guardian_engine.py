@@ -9,7 +9,9 @@ def is_risky(user_id: int, amount_cents: int, merchant: str, category: Optional[
     # If there is a rule matching the category and amount > half the monthly limit -> risky
     if not category:
         return False
-    rule = GuardianRule.query.filter_by(user_id=user_id, category=category).first()
+    
+    cat = category.strip().lower()
+    rule = GuardianRule.query.filter_by(user_id=user_id, category=cat).first()
     if not rule or not rule.monthly_limit_cents:
         return False
     return amount_cents > (rule.monthly_limit_cents // 2)
@@ -36,7 +38,6 @@ def create_pending_override(user_id: int, merchant: str, amount_cents: int, ttl_
     db.session.commit()
 
 def apply_guardian_logic(user_id: int, amount_cents: int, merchant: str, category: str | None):
-    # 0) Geofence check
     gf = geofence_effect(user_id, category)
     if gf:
         policy, gf_name = gf
@@ -53,6 +54,8 @@ def apply_guardian_logic(user_id: int, amount_cents: int, merchant: str, categor
     if has_valid_override(user_id, merchant, amount_cents):
         return ("APPROVE", "override")
 
+    print(user_id, amount_cents, merchant, category)
+    print(is_risky(user_id, amount_cents, merchant, category))
     # 2) Budget risk?
     if is_risky(user_id, amount_cents, merchant, category):
         create_pending_override(user_id, merchant, amount_cents)

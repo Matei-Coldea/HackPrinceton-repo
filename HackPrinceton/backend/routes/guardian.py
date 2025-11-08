@@ -90,3 +90,4 @@ def charge():
         "payment_intent_id": result["id"],
         "processor_status": result.get("status", "succeeded")
     })
+

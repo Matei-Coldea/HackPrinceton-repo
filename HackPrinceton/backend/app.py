@@ -19,7 +19,9 @@ def create_app():
     from routes.analytics import analytics_bp
     from routes.location import location_bp
     from routes.geofence import geofence_bp
+    from routes.agentic import agentic_bp
 
+    app.register_blueprint(agentic_bp, url_prefix="")
     app.register_blueprint(location_bp, url_prefix="")
     app.register_blueprint(geofence_bp, url_prefix="")
     app.register_blueprint(funding_bp, url_prefix="/funding")

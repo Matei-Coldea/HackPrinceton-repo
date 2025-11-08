@@ -48,3 +48,19 @@ def confirm_card():
     db.session.add(fs)
     db.session.commit()
     return jsonify({"status": "ok", "funding_source_id": fs.id})
+
+
+@funding_bp.get("/funding/default")
+def get_default_funding_source():
+    uid = get_current_user_id()
+    fs = FundingSource.query.filter_by(user_id=uid, is_default=True).first()
+    if not fs:
+        return jsonify({"error": "no default funding source found"}), 404
+    return jsonify({
+        "id": fs.id,
+        "label": fs.label,
+        "provider": fs.provider,
+        "type": fs.type,
+        "external_id": fs.external_id,
+        "created_at": fs.created_at.isoformat() if fs.created_at else None
+    })
