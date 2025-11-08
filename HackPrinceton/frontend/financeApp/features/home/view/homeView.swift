@@ -7,23 +7,16 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var vm = HomeViewModel()
     @State private var showingNotifications = false
     @State private var showTestAlert = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
                     FinanceCardView()
 
-                    SavingsCardView(
-                        total: vm.totalSaved,
-                        sinceDate: vm.sinceDate
-                    ) {
-                        SavingsChartView(cumulative: vm.cumulative)
-                            .frame(height: 220)
-                    }
+                    WidgetCardView()
 
                     Button {
                         // TODO: present AI assistant later
@@ -69,9 +62,6 @@ struct HomeView: View {
                         Image(systemName: "bell")
                     }
                 }
-            }
-            .task {
-                vm.load()
             }
             .sheet(isPresented: $showingNotifications) {
                 NotificationsView()
