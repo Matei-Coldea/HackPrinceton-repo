@@ -1,0 +1,3 @@
+code,type,severity,description
+RESTAURANT_STATIONARY_TOO_LONG,behavior,warning,User has been stationary near restaurant for too long
+

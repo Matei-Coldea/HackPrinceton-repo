@@ -1,0 +1,10 @@
+user_id,profile_type,monthly_income
+u1,Saver,2000
+u2,Average,3000
+u3,Spender,4500
+u4,Saver,1800
+u5,Average,3500
+u6,Spender,5000
+test_user,Average,3000
+demo_user,Spender,4000
+
