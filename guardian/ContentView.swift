@@ -2,9 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        let customGreen = Color(red: 0.22, green: 0.69, blue: 0.0)
         ZStack{
-            Color(customGreen).edgesIgnoringSafeArea(.all)
+            Color.theme.primary.edgesIgnoringSafeArea(.all)
             VStack{
                 HStack{
                     Text("Guardian")
