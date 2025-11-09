@@ -18,7 +18,7 @@ struct UserAnalysis: View {
     private let questions = [
         "When are you most likely to make impulse purchases?",
         "What best describes your current spending habits?",
-        "What's your primary financial goal with MindfulSpend?"
+        "What's your primary financial goal with Guardian?"
     ]
     
     private let questionOptions: [[OptionItem]] = [
