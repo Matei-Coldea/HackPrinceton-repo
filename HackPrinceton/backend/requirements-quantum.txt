@@ -1,0 +1,15 @@
+# Optional Quantum Computing Dependencies
+# These are optional - the system will fall back to classical algorithms if not installed
+# 
+# WARNING: qiskit has compatibility issues with Python 3.12+
+# If you encounter build errors, you can skip these dependencies
+# The obligations_quantum.py service will automatically use classical greedy algorithm
+
+# For Python 3.11 and below:
+qiskit==0.45.0
+qiskit-optimization==0.6.0
+
+# If you're on Python 3.12+, try these newer versions (experimental):
+# qiskit>=1.0.0
+# qiskit-optimization>=0.6.1
+

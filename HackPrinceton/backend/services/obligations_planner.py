@@ -2,10 +2,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import pandas as pd
 from pathlib import Path
-import sys
 
-config_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(config_path))
 from config import (
     SAFETY_BUFFER_RATIO,
     SAVINGS_GOAL_RATIO,
@@ -14,7 +11,7 @@ from config import (
 
 from .obligations_quantum import quantum_select_optional_events
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 
 def load_obligations_for_user(user_id: str, 
@@ -170,4 +167,5 @@ def get_cached_obligations_summary(
     _obligations_cache[user_id] = (today, summary)
     
     return summary
+
 

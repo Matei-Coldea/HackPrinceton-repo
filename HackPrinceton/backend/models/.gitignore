@@ -1,0 +1,12 @@
+# Ignore all ML model files (they're large binary files)
+*.pkl
+*.joblib
+*.h5
+*.pb
+*.onnx
+
+# Keep this gitignore and README
+!.gitignore
+!README.md
+
+

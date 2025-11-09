@@ -2,17 +2,15 @@ import math
 import os
 import csv
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from ..models import Stats, Notification, LocationCheckResponse
-
-env_path = Path(__file__).parent.parent.parent / ".env"
+env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent / "data"
 
 
 def _get_required_env(var_name: str, var_type=str, default=None):
@@ -39,10 +37,10 @@ def _get_required_env(var_name: str, var_type=str, default=None):
 USE_GOOGLE_PLACES = _get_required_env("USE_GOOGLE_PLACES", bool, default=False)
 GOOGLE_API_KEY = _get_required_env("GOOGLE_API_KEY", str, default="")
 
-DEFAULT_BLOCK_PING_THRESHOLD = _get_required_env("DEFAULT_BLOCK_PING_THRESHOLD", int)
-DEFAULT_DWELL_WINDOW_MINUTES = _get_required_env("DEFAULT_DWELL_WINDOW_MINUTES", int)
-STATIONARY_SPEED_MPS = _get_required_env("STATIONARY_SPEED_MPS", float)
-MAX_STATIONARY_GAP_SECONDS = _get_required_env("MAX_STATIONARY_GAP_SECONDS", int)
+DEFAULT_BLOCK_PING_THRESHOLD = _get_required_env("DEFAULT_BLOCK_PING_THRESHOLD", int, default=5)
+DEFAULT_DWELL_WINDOW_MINUTES = _get_required_env("DEFAULT_DWELL_WINDOW_MINUTES", int, default=30)
+STATIONARY_SPEED_MPS = _get_required_env("STATIONARY_SPEED_MPS", float, default=0.5)
+MAX_STATIONARY_GAP_SECONDS = _get_required_env("MAX_STATIONARY_GAP_SECONDS", int, default=300)
 
 RESTAURANT_TYPES = {
     "restaurant",
@@ -229,20 +227,26 @@ def record_restaurant_ping(user_id: str, now: datetime, window_minutes: int) -> 
     return lst
 
 
-def build_notification(code: str) -> Notification:
+def build_notification(code: str) -> Dict:
     tmpl = NOTIFICATION_TEMPLATES.get(code, {})
-    return Notification(
-        type=tmpl.get("type", "generic"),
-        severity=tmpl.get("severity", "info"),
-        code=code,
-    )
+    return {
+        "type": tmpl.get("type", "generic"),
+        "severity": tmpl.get("severity", "info"),
+        "code": code,
+    }
 
 
-def send_notification(user_id: str, notification: Notification) -> None:
-    print(f"[NOTIFY] user={user_id} code={notification.code} severity={notification.severity}")
+def send_notification(user_id: str, notification: Dict) -> None:
+    print(f"[NOTIFY] user={user_id} code={notification['code']} severity={notification['severity']}")
 
 
-async def check_location(user_id: str, lat: float, lon: float) -> LocationCheckResponse:
+async def check_location(user_id: str, lat: float, lon: float) -> Dict:
+    """
+    Check if a user's location triggers any geo-guardian alerts.
+    
+    Returns:
+        dict with keys: decision, stats (optional), notifications (optional)
+    """
     from datetime import timezone
     now = datetime.now(timezone.utc)
 
@@ -251,10 +255,10 @@ async def check_location(user_id: str, lat: float, lon: float) -> LocationCheckR
 
     nearest = get_nearest_restaurant(places, lat, lon, max_dist_m=50.0)
     if not nearest:
-        return LocationCheckResponse(decision="ok")
+        return {"decision": "ok"}
 
     if not is_stationary:
-        return LocationCheckResponse(decision="ok")
+        return {"decision": "ok"}
 
     user_cfg = get_geo_user_config(user_id)
     dwell_window = user_cfg["dwell_window_minutes"]
@@ -267,14 +271,15 @@ async def check_location(user_id: str, lat: float, lon: float) -> LocationCheckR
         notif = build_notification("RESTAURANT_STATIONARY_TOO_LONG")
         send_notification(user_id, notif)
 
-        return LocationCheckResponse(
-            decision="block",
-            stats=Stats(
-                recent_stationary_pings_near_restaurants=num_pings,
-                window_minutes=dwell_window,
-            ),
-            notifications=[notif],
-        )
+        return {
+            "decision": "block",
+            "stats": {
+                "recent_stationary_pings_near_restaurants": num_pings,
+                "window_minutes": dwell_window,
+            },
+            "notifications": [notif],
+        }
 
-    return LocationCheckResponse(decision="ok")
+    return {"decision": "ok"}
+
 

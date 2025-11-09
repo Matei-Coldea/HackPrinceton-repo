@@ -100,3 +100,4 @@ def quantum_select_optional_events(optional_events: List[Dict],
                                    budget_for_optional: float) -> List[Dict]:
     return solve_knapsack_qaoa(optional_events, budget_for_optional)
 
+

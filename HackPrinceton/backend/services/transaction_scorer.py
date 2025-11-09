@@ -4,10 +4,7 @@ import csv
 import joblib
 import pandas as pd
 from pathlib import Path
-import sys
 
-config_path = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(config_path))
 from config import (
     MERCHANTS,
     CATEGORY_MCC,
@@ -17,16 +14,23 @@ from config import (
     SAVER_SCORE_MAP,
     THRESHOLDS,
 )
-from ..models import TransactionIn, ScoreResponse
 from .obligations_planner import get_cached_obligations_summary
 
-base_dir = Path(__file__).parent.parent.parent
-pipeline = joblib.load(base_dir / "models" / "guardian_pipeline.pkl")
+base_dir = Path(__file__).parent.parent
+pipeline = None
+kmeans_groc = None
 
-try:
-    kmeans_groc = joblib.load(base_dir / "models" / "kmeans_groceries.pkl")
-except FileNotFoundError:
-    kmeans_groc = None
+def _load_models():
+    global pipeline, kmeans_groc
+    try:
+        pipeline = joblib.load(base_dir / "models" / "guardian_pipeline.pkl")
+    except FileNotFoundError:
+        pipeline = None
+    
+    try:
+        kmeans_groc = joblib.load(base_dir / "models" / "kmeans_groceries.pkl")
+    except FileNotFoundError:
+        kmeans_groc = None
 
 
 def _load_user_profiles():
@@ -55,11 +59,17 @@ for cat, merchants in MERCHANTS.items():
     for m in merchants:
         MERCHANT_CATEGORY_MAP[m] = cat
 
-USER_PROFILES: Dict[str, Dict[str, float]] = _load_user_profiles()
+USER_PROFILES: Dict[str, Dict[str, float]] = {}
+USER_MONTHLY_SPEND: Dict[str, Dict[str, float]] = {}
 
-USER_MONTHLY_SPEND: Dict[str, Dict[str, float]] = {
-    uid: {} for uid in USER_PROFILES.keys()
-}
+def _initialize():
+    global USER_PROFILES, USER_MONTHLY_SPEND
+    _load_models()
+    USER_PROFILES = _load_user_profiles()
+    USER_MONTHLY_SPEND = {uid: {} for uid in USER_PROFILES.keys()}
+
+# Initialize on module load
+_initialize()
 
 
 def get_base_category(merchant_name: str, mcc: int) -> str:
@@ -71,47 +81,63 @@ def get_base_category(merchant_name: str, mcc: int) -> str:
     return "MISC_ONLINE"
 
 
-def score_transaction(t: TransactionIn) -> ScoreResponse:
-    if t.user_id not in USER_PROFILES:
-        USER_PROFILES[t.user_id] = {"profile_type": "Average", "monthly_income": 3000}
-        USER_MONTHLY_SPEND[t.user_id] = {}
+def score_transaction(user_id: str, amount: float, merchant_name: str, 
+                     mcc: int = 0, timestamp: str = "", channel: str = "offline") -> Dict:
+    """
+    Score a transaction and return decision, probability, reason, and debug info.
     
-    profile = USER_PROFILES[t.user_id]
+    Returns:
+        dict with keys: decision, p_avoid, reason, debug
+    """
+    if user_id not in USER_PROFILES:
+        USER_PROFILES[user_id] = {"profile_type": "Average", "monthly_income": 3000}
+        USER_MONTHLY_SPEND[user_id] = {}
+    
+    profile = USER_PROFILES[user_id]
     profile_type = profile["profile_type"]
     income = profile["monthly_income"]
     saver_score = SAVER_SCORE_MAP.get(profile_type, 1)
     
-    dt = datetime.fromisoformat(t.timestamp)
+    if timestamp:
+        dt = datetime.fromisoformat(timestamp)
+    else:
+        dt = datetime.utcnow()
+    
     hour = dt.hour
     day_of_week = dt.weekday()
     
-    base_category = get_base_category(t.merchant_name, t.mcc or 0)
+    base_category = get_base_category(merchant_name, mcc or 0)
     micro_category = "NONE"
     
     if base_category == "GROCERIES" and kmeans_groc is not None:
-        Xg = [[t.amount, hour, day_of_week]]
+        Xg = [[amount, hour, day_of_week]]
         cluster = kmeans_groc.predict(Xg)[0]
         micro_category = str(cluster)
     
     ratio = CATEGORY_BUDGET_RATIOS.get(base_category, 0.1)
     budget_cat = income * ratio
-    user_spend = USER_MONTHLY_SPEND.setdefault(t.user_id, {})
+    user_spend = USER_MONTHLY_SPEND.setdefault(user_id, {})
     spend_before = user_spend.get(base_category, 0.0)
-    spend_after = spend_before + t.amount
+    spend_after = spend_before + amount
     over_budget_ratio = (spend_after / budget_cat) if budget_cat > 0 else 0.0
     
     row = {
-        "amount": t.amount,
+        "amount": amount,
         "hour_of_day": hour,
         "day_of_week": day_of_week,
         "saver_score": saver_score,
         "base_category": base_category,
         "micro_category": micro_category,
-        "channel": t.channel,
+        "channel": channel,
     }
     X = pd.DataFrame([row])
     
-    p_ml = float(pipeline.predict_proba(X)[0, 1])
+    if pipeline is not None:
+        p_ml = float(pipeline.predict_proba(X)[0, 1])
+    else:
+        # Fallback if model not trained
+        p_ml = 0.5
+    
     p_avoid = p_ml
     reason = "Model thinks this might be avoidable."
     
@@ -120,7 +146,7 @@ def score_transaction(t: TransactionIn) -> ScoreResponse:
     )
     
     obligations_summary = get_cached_obligations_summary(
-        user_id=t.user_id,
+        user_id=user_id,
         monthly_income=income,
         discretionary_spent_so_far=discretionary_spent_so_far,
     )
@@ -139,10 +165,10 @@ def score_transaction(t: TransactionIn) -> ScoreResponse:
                 f"You have ${safe_left:.0f} safely available."
             )
             obligations_triggered = True
-        elif t.amount > safe_left * 0.5:
+        elif amount > safe_left * 0.5:
             p_avoid = max(p_avoid, 0.80)
             reason = (
-                f"This ${t.amount:.0f} purchase would consume a large portion "
+                f"This ${amount:.0f} purchase would consume a large portion "
                 f"of your safely spendable budget (${safe_left:.0f} left after "
                 f"obligations of ${reserved_obligations:.0f})."
             )
@@ -153,7 +179,7 @@ def score_transaction(t: TransactionIn) -> ScoreResponse:
             p_avoid = max(p_avoid, min(0.9 + 0.1 * (over_budget_ratio - 1.0), 0.99))
             reason = (
                 f"You've already spent ${spend_before:.0f} in {base_category} this month. "
-                f"This ${t.amount:.0f} purchase will push you to "
+                f"This ${amount:.0f} purchase will push you to "
                 f"{over_budget_ratio * 100:.0f}% of your {base_category} budget."
             )
         
@@ -178,10 +204,11 @@ def score_transaction(t: TransactionIn) -> ScoreResponse:
         "obligations_triggered": obligations_triggered,
     }
     
-    return ScoreResponse(
-        decision=decision,
-        p_avoid=p_avoid,
-        reason=reason,
-        debug=debug,
-    )
+    return {
+        "decision": decision,
+        "p_avoid": p_avoid,
+        "reason": reason,
+        "debug": debug,
+    }
+
 

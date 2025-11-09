@@ -10,7 +10,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
 def main():
-    base_dir = Path(__file__).resolve().parent.parent
+    base_dir = Path(__file__).resolve().parent
     data_path = base_dir / "data" / "transactions.csv"
     models_dir = base_dir / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
@@ -69,4 +69,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
