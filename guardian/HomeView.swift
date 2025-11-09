@@ -22,13 +22,7 @@ struct HomeView: View {
                         Spacer()
                         
                         HStack(spacing: 12) {
-                            Button {
-                                showingAnalytics = true
-                            } label: {
-                                Image(systemName: "chart.line.uptrend.xyaxis")
-                                    .font(.title3)
-                                    .foregroundStyle(.primary)
-                            }
+                    
                             
                             Button {
                                 showingNotifications = true
