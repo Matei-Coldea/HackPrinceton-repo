@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run financeApp on Simulator",
+      "type": "lldb",
+      "request": "launch",
+      "program": "",
+      "preLaunchTask": "Run financeApp on Simulator",
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
